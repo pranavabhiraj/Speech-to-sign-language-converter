@@ -1,0 +1,5 @@
+body{font-family:Arial,Helvetica,sans-serif;max-width:900px;margin:20px auto;padding:0 12px}
+h1{margin-bottom:16px}
+.controls button,.panel button{margin-right:8px;padding:8px 12px}
+.panel{margin-top:14px}
+textarea{width:100%;font-size:16px}
