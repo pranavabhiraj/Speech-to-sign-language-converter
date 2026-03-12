@@ -1,34 +1,406 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Audio to Sign Language</title>
-<link rel="stylesheet" href="/static/css/style.css">
+<title>SignBridge — Speech to Sign Language</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0a0a0f;
+    --paper: #f5f2ec;
+    --cream: #ede9e0;
+    --accent: #d4500a;
+    --accent2: #1a6b5e;
+    --mid: #8a8478;
+    --light: #c8c3b8;
+    --card: #ffffff;
+    --glow: rgba(212,80,10,0.15);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.4;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 24px 48px;
+    border-bottom: 1px solid var(--light);
+    position: sticky; top: 0;
+    background: rgba(245,242,236,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem;
+    letter-spacing: -0.02em; color: var(--ink);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent); display: inline-block;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:0.7} }
+  .tagline { font-size: 0.8rem; color: var(--mid); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 400; }
+  .hero { padding: 64px 48px 48px; max-width: 1200px; margin: 0 auto; }
+  .hero-eyebrow {
+    font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--accent); font-weight: 500; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .hero-eyebrow::before { content:''; display:block; width:32px; height:1px; background:var(--accent); }
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.8rem, 6vw, 5.5rem);
+    font-weight: 800; line-height: 0.95; letter-spacing: -0.04em;
+    margin-bottom: 24px; max-width: 700px;
+  }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero-sub { font-size: 1.1rem; color: var(--mid); font-weight: 300; max-width: 480px; line-height: 1.7; }
+  .stats-bar {
+    display: flex; gap: 1px; background: var(--cream); border-radius: 16px;
+    overflow: hidden; margin: 0 auto 24px; max-width: 1200px; padding: 0 48px;
+  }
+  .stat { flex: 1; background: var(--card); padding: 18px 24px; display: flex; flex-direction: column; gap: 4px; }
+  .stat:first-child { border-radius: 16px 0 0 16px; }
+  .stat:last-child { border-radius: 0 16px 16px 0; }
+  .stat-val { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; transition: all 0.3s; }
+  .stat-key { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mid); font-weight: 400; }
+  .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 1200px; margin: 0 auto; padding: 0 48px 48px; }
+  .card {
+    background: var(--card); border: 1px solid var(--cream); border-radius: 20px;
+    padding: 32px; position: relative; overflow: hidden;
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+  .card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.08); transform: translateY(-2px); }
+  .card-label {
+    font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--mid); font-weight: 500; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-label .num {
+    width: 20px; height: 20px; background: var(--ink); color: white;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem; font-weight: 600;
+  }
+  .mic-center { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 20px 0; }
+  .mic-ring {
+    position: relative; width: 120px; height: 120px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mic-ring::before,.mic-ring::after {
+    content:''; position:absolute; border-radius:50%;
+    border:1px solid var(--light); animation:ripple 2.5s ease-out infinite; opacity:0;
+  }
+  .mic-ring::before { width:100%; height:100%; animation-delay:0s; }
+  .mic-ring::after { width:140%; height:140%; top:-20%; left:-20%; animation-delay:0.8s; }
+  .mic-ring.active::before,.mic-ring.active::after { border-color:var(--accent); animation:ripple-active 1.2s ease-out infinite; }
+  @keyframes ripple { 0%{transform:scale(0.8);opacity:0.6} 100%{transform:scale(1.2);opacity:0} }
+  @keyframes ripple-active { 0%{transform:scale(0.8);opacity:0.8} 100%{transform:scale(1.4);opacity:0} }
+  .mic-btn {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: var(--ink); color: white; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.25s ease; position: relative; z-index: 2;
+    box-shadow: 0 8px 24px rgba(10,10,15,0.2);
+  }
+  .mic-btn:hover { transform: scale(1.06); background: #1a1a28; }
+  .mic-btn.active { background: var(--accent); box-shadow: 0 8px 32px var(--glow); animation: mic-throb 1s ease-in-out infinite; }
+  @keyframes mic-throb { 0%,100%{box-shadow:0 8px 32px var(--glow)} 50%{box-shadow:0 8px 48px rgba(212,80,10,0.35)} }
+  .mic-status { font-size: 0.85rem; color: var(--mid); font-weight: 400; letter-spacing: 0.02em; transition: color 0.3s; }
+  .mic-status.active { color: var(--accent); font-weight: 500; }
+  .waveform { display: flex; align-items: center; gap: 3px; height: 24px; opacity: 0; transition: opacity 0.4s; }
+  .waveform.active { opacity: 1; }
+  .waveform .bar { width: 3px; background: var(--accent); border-radius: 2px; animation: wave 0.8s ease-in-out infinite; }
+  .waveform .bar:nth-child(1){animation-delay:0s} .waveform .bar:nth-child(2){animation-delay:0.1s}
+  .waveform .bar:nth-child(3){animation-delay:0.2s} .waveform .bar:nth-child(4){animation-delay:0.3s}
+  .waveform .bar:nth-child(5){animation-delay:0.15s} .waveform .bar:nth-child(6){animation-delay:0.05s}
+  .waveform .bar:nth-child(7){animation-delay:0.25s}
+  @keyframes wave { 0%,100%{height:4px} 50%{height:20px} }
+  .transcript-area {
+    width: 100%; min-height: 100px; background: var(--paper);
+    border: 1.5px solid var(--cream); border-radius: 12px; padding: 16px;
+    font-family: 'DM Sans', sans-serif; font-size: 1rem; color: var(--ink);
+    resize: none; outline: none; line-height: 1.6; transition: border-color 0.2s;
+  }
+  .transcript-area:focus { border-color: var(--accent); }
+  .transcript-area::placeholder { color: var(--light); }
+  .process-btn {
+    width: 100%; padding: 14px 24px; background: var(--ink); color: white;
+    border: none; border-radius: 12px; font-family: 'Syne', sans-serif;
+    font-size: 0.9rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 16px;
+  }
+  .process-btn:hover { background: var(--accent); transform: translateY(-1px); }
+  .process-btn:active { transform: translateY(0); }
+  .process-btn.loading { background: var(--mid); pointer-events: none; }
+  .word-queue { display: flex; flex-wrap: wrap; gap: 8px; min-height: 48px; align-content: flex-start; }
+  .word-pill {
+    padding: 6px 14px; background: var(--cream); border-radius: 100px;
+    font-size: 0.85rem; font-weight: 500; color: var(--mid);
+    border: 1px solid var(--light); transition: all 0.3s;
+    animation: pill-in 0.3s ease both;
+  }
+  @keyframes pill-in { from{opacity:0;transform:scale(0.7) translateY(4px)} to{opacity:1;transform:scale(1) translateY(0)} }
+  .word-pill.active { background: var(--ink); color: white; border-color: var(--ink); transform: scale(1.08); }
+  .word-pill.done { background: var(--accent2); color: white; border-color: var(--accent2); opacity: 0.6; }
+  .word-pill.skip { background: var(--cream); color: var(--light); text-decoration: line-through; }
+  .video-wrap { grid-column: 1 / -1; }
+  .video-inner { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start; }
+  .video-stage {
+    background: var(--ink); border-radius: 16px; overflow: hidden;
+    aspect-ratio: 16/9; position: relative; display: flex; align-items: center; justify-content: center;
+  }
+  .video-stage video { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .video-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+    opacity: 1; transition: opacity 0.3s; pointer-events: none;
+  }
+  .video-overlay.hidden { opacity: 0; }
+  .video-overlay-icon {
+    width: 60px; height: 60px; background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .video-overlay p { font-size: 0.8rem; color: rgba(255,255,255,0.4); letter-spacing: 0.08em; text-transform: uppercase; }
+  .current-sign { display: flex; flex-direction: column; gap: 16px; }
+  .sign-word-display {
+    background: var(--ink); color: white; border-radius: 16px; padding: 28px 24px;
+    text-align: center; min-height: 120px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    transition: all 0.4s ease;
+  }
+  .sign-label { font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(255,255,255,0.4); font-weight: 500; }
+  .sign-word {
+    font-family: 'Syne', sans-serif; font-size: 2.2rem; font-weight: 800;
+    letter-spacing: -0.02em; color: white; transition: all 0.3s;
+    animation: word-pop 0.4s ease;
+  }
+  @keyframes word-pop { 0%{transform:scale(0.8);opacity:0} 60%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1} }
+  .sign-progress { display: flex; align-items: center; gap: 8px; }
+  .progress-track { flex: 1; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; width: 0%; }
+  .progress-text { font-size: 0.75rem; color: rgba(255,255,255,0.4); white-space: nowrap; }
+  .nav-controls { display: flex; gap: 8px; }
+  .nav-btn {
+    flex: 1; padding: 10px; border: 1.5px solid var(--cream); border-radius: 10px;
+    background: transparent; color: var(--ink); font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .nav-btn:hover { background: var(--ink); color: white; border-color: var(--ink); }
+  .nav-btn:disabled { opacity: 0.3; pointer-events: none; }
+  .empty-queue { width: 100%; display: flex; align-items: center; gap: 10px; color: var(--light); font-size: 0.85rem; font-style: italic; }
+  .toast {
+    position: fixed; bottom: 32px; right: 32px; background: var(--ink); color: white;
+    padding: 12px 20px; border-radius: 10px; font-size: 0.85rem; z-index: 1000;
+    animation: toast-in 0.3s ease; max-width: 280px;
+  }
+  @keyframes toast-in { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  @media (max-width: 900px) {
+    header { padding: 16px 24px; }
+    .hero { padding: 40px 24px 32px; }
+    .main-grid { grid-template-columns: 1fr; padding: 0 24px 40px; }
+    .stats-bar { padding: 0 24px; }
+    .video-inner { grid-template-columns: 1fr; }
+    .video-wrap { grid-column: auto; }
+  }
+</style>
 </head>
 <body>
-<h1>Audio to Sign Language</h1>
 
-<div class="controls">
-<button id="startBtn">Start Mic</button>
-<button id="stopBtn">Stop Mic</button>
+<header>
+  <div class="logo"><span class="logo-dot"></span>SignBridge</div>
+  <span class="tagline">Speech → Sign Language</span>
+</header>
+
+<section class="hero">
+  <div class="hero-eyebrow">Real-time conversion</div>
+  <h1>Speak.<br><em>See</em> in sign.</h1>
+  <p class="hero-sub">Converts your speech into Indian Sign Language videos — word by word, in real time.</p>
+</section>
+
+<div class="stats-bar">
+  <div class="stat"><span class="stat-val" id="statWords">0</span><span class="stat-key">Words Detected</span></div>
+  <div class="stat"><span class="stat-val" id="statSigned">0</span><span class="stat-key">Signs Played</span></div>
+  <div class="stat"><span class="stat-val" id="statSkipped">0</span><span class="stat-key">Skipped</span></div>
+  <div class="stat"><span class="stat-val" id="statSession">0</span><span class="stat-key">Sentences</span></div>
 </div>
 
-<div class="panel">
-<label>Transcript</label>
-<textarea id="transcript" rows="3" placeholder="Speak or type here..."></textarea>
-<button id="processBtn">Process</button>
+<div class="main-grid">
+  <div class="card">
+    <div class="card-label"><span class="num">1</span> Voice Input</div>
+    <div class="mic-center">
+      <div class="mic-ring" id="micRing">
+        <button class="mic-btn" id="micBtn" title="Toggle microphone">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+      </div>
+      <div class="waveform" id="waveform">
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+      <span class="mic-status" id="micStatus">Click to start listening</span>
+    </div>
+    <textarea class="transcript-area" id="transcript" rows="4" placeholder="Your speech will appear here… or type directly."></textarea>
+    <button class="process-btn" id="processBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Translate to Sign Language
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="card-label"><span class="num">2</span> Word Queue</div>
+    <div class="word-queue" id="wordQueue">
+      <span class="empty-queue">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Words will appear here after processing
+      </span>
+    </div>
+  </div>
+
+  <div class="card video-wrap">
+    <div class="card-label"><span class="num">3</span> Sign Language Output</div>
+    <div class="video-inner">
+      <div class="video-stage">
+        <video id="player" playsinline></video>
+        <div class="video-overlay" id="videoOverlay">
+          <div class="video-overlay-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+            </svg>
+          </div>
+          <p>Awaiting input</p>
+        </div>
+      </div>
+      <div class="current-sign">
+        <div class="sign-word-display">
+          <span class="sign-label">Now Signing</span>
+          <span class="sign-word" id="signWord">—</span>
+          <div class="sign-progress" id="signProgress" style="width:100%;display:none">
+            <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+            <span class="progress-text" id="progressText">0/0</span>
+          </div>
+        </div>
+        <div class="nav-controls">
+          <button class="nav-btn" id="prevBtn" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Prev
+          </button>
+          <button class="nav-btn" id="skipBtn" disabled>
+            Skip<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <button class="nav-btn" id="replayBtn" disabled style="width:100%;padding:12px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+          Replay Sequence
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div class="panel">
-<label>Detected words</label>
-<ul id="wordList"></ul>
-</div>
+<script>
+let recognition=null,listening=false,queue=[],idx=0,pillEls=[],totalSigned=0,totalSkipped=0,totalSentences=0;
+const micBtn=document.getElementById('micBtn'),micRing=document.getElementById('micRing'),
+  micStatus=document.getElementById('micStatus'),waveform=document.getElementById('waveform'),
+  transcriptEl=document.getElementById('transcript'),processBtn=document.getElementById('processBtn'),
+  wordQueue=document.getElementById('wordQueue'),player=document.getElementById('player'),
+  videoOverlay=document.getElementById('videoOverlay'),signWord=document.getElementById('signWord'),
+  signProgress=document.getElementById('signProgress'),progressFill=document.getElementById('progressFill'),
+  progressText=document.getElementById('progressText'),prevBtn=document.getElementById('prevBtn'),
+  skipBtn=document.getElementById('skipBtn'),replayBtn=document.getElementById('replayBtn');
 
-<div class="panel">
-<video id="player" width="640" height="360" controls autoplay></video>
-</div>
-
-<script src="/static/js/app.js"></script>
+function updateStats(){
+  document.getElementById('statWords').textContent=queue.length;
+  document.getElementById('statSigned').textContent=totalSigned;
+  document.getElementById('statSkipped').textContent=totalSkipped;
+  document.getElementById('statSession').textContent=totalSentences;
+}
+function toast(msg){
+  const t=document.createElement('div');t.className='toast';t.textContent=msg;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+}
+function setupRecognition(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast('Speech API not supported. Use Chrome.');return null;}
+  const rec=new SR();rec.lang='en-IN';rec.continuous=true;rec.interimResults=true;
+  rec.onresult=(e)=>{let t='';for (let i = e.resultIndex; i < e.results.length; i++) t+=e.results[i][0].transcript+' ';transcriptEl.value=t.trim();};
+  rec.onend=()=>{if(listening){try{rec.start();}catch(e){}}};
+  rec.onerror=(e)=>{if(e.error!=='no-speech')toast('Mic error: '+e.error);};
+  return rec;
+}
+micBtn.addEventListener('click',()=>{
+  if(!listening){
+    if(!recognition)recognition=setupRecognition();if(!recognition)return;
+    listening=true;try{recognition.start();}catch(e){}
+    micBtn.classList.add('active');micRing.classList.add('active');waveform.classList.add('active');
+    micStatus.textContent='Listening…';micStatus.classList.add('active');
+  }else{
+    listening=false;if(recognition){try{recognition.stop();}catch(e){}}
+    micBtn.classList.remove('active');micRing.classList.remove('active');waveform.classList.remove('active');
+    micStatus.textContent='Click to start listening';micStatus.classList.remove('active');
+  }
+});
+processBtn.addEventListener('click',async()=>{
+  const text=transcriptEl.value.trim();
+  if(!text){toast('Please speak or type something first.');return;}
+  processBtn.classList.add('loading');processBtn.textContent='Processing…';
+  try{
+    const res=await fetch('/process',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    const data=await res.json();
+    queue=data.words||[];idx=0;totalSentences++;updateStats();renderQueue();playNext();
+  }catch(e){toast('Error connecting to server.');}
+  finally{
+    processBtn.classList.remove('loading');
+    processBtn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Translate to Sign Language';
+  }
+});
+function renderQueue(){
+  wordQueue.innerHTML='';pillEls=[];
+  if(!queue.length){wordQueue.innerHTML='<span class="empty-queue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No words detected</span>';return;}
+  queue.forEach((w,i)=>{const p=document.createElement('div');p.className='word-pill';p.textContent=w;p.style.animationDelay=(i*0.04)+'s';wordQueue.appendChild(p);pillEls.push(p);});
+  signProgress.style.display='flex';skipBtn.disabled=false;replayBtn.disabled=false;
+}
+function updatePills(){pillEls.forEach((p,i)=>{p.classList.remove('active','done','skip');if(i<idx)p.classList.add('done');else if(i===idx)p.classList.add('active');});}
+function updateProgress(){if(!queue.length)return;const pct=Math.round((idx/queue.length)*100);progressFill.style.width=pct+'%';progressText.textContent=idx+'/'+queue.length;prevBtn.disabled=idx<=0;skipBtn.disabled=idx>=queue.length;}
+function playNext(){
+  if(idx>=queue.length){signWord.textContent='✓';videoOverlay.classList.remove('hidden');updatePills();updateProgress();if(queue.length)toast('All signs played!');return;}
+  const word=queue[idx];
+  signWord.style.animation='none';void signWord.offsetWidth;signWord.style.animation='';
+  signWord.textContent=word;updatePills();updateProgress();
+  player.src='/static/videos/'+word+'.mp4';videoOverlay.classList.add('hidden');
+  player.play().catch(()=>{totalSkipped++;if(pillEls[idx])pillEls[idx].classList.add('skip');updateStats();idx++;playNext();});
+}
+player.addEventListener('ended',()=>{totalSigned++;updateStats();idx++;playNext();});
+prevBtn.addEventListener('click',()=>{if(idx>0){idx--;playNext();}});
+skipBtn.addEventListener('click',()=>{totalSkipped++;updateStats();idx++;playNext();});
+replayBtn.addEventListener('click',()=>{idx=0;totalSigned=0;playNext();});
+updateStats();
+</script>
 </body>
 </html>
